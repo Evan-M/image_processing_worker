@@ -81,17 +81,19 @@ def merge_images(col_num, row_num, file_list)
   output_filename
 end
 
-def upload_file(filename)
+def upload_file(filename, path=nil)
   unless params['disable_network']
+    bucket_name = params['aws']['s3_bucket_name']
+    path = path && "#{path}/" || ""
     files = [filename].flatten
     files.each do |filepath|
       puts "Uploading the file to s3..."
       s3 = Aws::S3Interface.new(params['aws']['access_key'], params['aws']['secret_key'])
-      s3.create_bucket(params['aws']['s3_bucket_name'])
-      response = s3.put(params['aws']['s3_bucket_name'], filepath, File.open(filepath))
+      s3.create_bucket(bucket_name)
+      response = s3.put(bucket_name, "#{path}#{filepath}", File.open(filepath))
       if response == true
         puts "Uploading successful."
-        link = s3.get_link(params['aws']['s3_bucket_name'], filepath)
+        link = s3.get_link(bucket_name, filepath)
         puts "\nYou can view the file here on s3: ", link
       else
         puts "Error uploading to s3."
@@ -124,11 +126,12 @@ puts "Downloading image"
 filename = download_image
 params['operations'].each do |op|
   puts "\n\nPerforming #{op[:op]} with #{op.inspect}"
+  output_path = op['destination_path']
   output_filename = op['destination']
   image = MiniMagick::Image.open(filename)
   image = self.send(op[:op], image, {}.merge(op))
   image.format op['format'] if op['format']
   image.write output_filename
-  upload_file output_filename
+  upload_file output_filename, output_path
 end
 puts "Worker end"

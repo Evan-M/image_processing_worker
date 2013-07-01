@@ -12,7 +12,8 @@ operations: [ # an array of operations to perform
     op: "name of imagemagick operation",
     x*: "parameters for for the op"
     format: "output format, eg: 'jpg'"
-    destination: "filename for new file, this is where it will be stored in the s3 bucket"
+    destination: "filename for new file, this is the key used to store in the s3 bucket"
+    destination_path: "path for new file, this is where it will be stored in the s3 bucket"
   }
 ]
 =end
