@@ -22,7 +22,7 @@ $ gem install iron_worker_ng
 From the command line:
 
 ```
-$ iron_worker upload https://github.com/treeder/image_processing_worker/blob/master/image_processor.worker
+$ iron_worker upload https://github.com/Evan-M/image_processing_worker/blob/master/image_processor.worker
 ```
 
 ### 2. Start using it!
