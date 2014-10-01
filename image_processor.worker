@@ -23,7 +23,7 @@ operations: [ # an array of operations to perform
 
 runtime 'ruby'
 
-gem 'aws'
+gem 'fog'
 gem 'subexec'
 gem 'mini_magick'
 

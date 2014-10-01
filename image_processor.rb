@@ -1,6 +1,6 @@
 require 'open-uri'
 
-require 'aws'
+require 'fog'
 require 'subexec'
 require 'mini_magick'
 
@@ -84,17 +84,31 @@ end
 def upload_file(filename, path=nil)
   unless params['disable_network']
     bucket_name = params['aws']['s3_bucket_name']
-    path = path && "#{path}/" || ""
+    path = path && !path.end_with?('/') && "#{path}/" || ""
     files = [filename].flatten
     files.each do |filepath|
-      puts "Uploading the file to s3..."
-      s3 = Aws::S3Interface.new(params['aws']['access_key'], params['aws']['secret_key'])
-      s3.create_bucket(bucket_name)
-      response = s3.put(bucket_name, "#{path}#{filepath}", File.open(filepath))
-      if response == true
+      puts "Uploading the file #{filepath} to s3://#{bucket_name}/#{path}"
+
+      s3 = Fog::Storage.new({
+        provider:                 'AWS',
+        aws_access_key_id:        params['aws']['access_key'],
+        aws_secret_access_key:    params['aws']['secret_key']
+      })
+
+      bucket = s3.directories.create(
+        key: bucket_name,
+        public: true
+      )
+
+      stored_file = bucket.files.create(
+        key: "#{path}#{filepath}",
+        body: File.open(filepath),
+        public: true
+      )
+
+      if stored_file
         puts "Uploading successful."
-        link = s3.get_link(bucket_name, filepath)
-        puts "\nYou can view the file here on s3: ", link
+        puts "\nYou can view the file here on s3: ", stored_file.public_url
       else
         puts "Error uploading to s3."
       end
