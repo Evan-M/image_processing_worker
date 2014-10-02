@@ -4,6 +4,15 @@ require 'fog'
 require 'subexec'
 require 'mini_magick'
 
+def original(image, h)
+  original_width, original_height = image[:width], image[:height]
+  image.combine_options do |c|
+    c.strip
+    c.resize "#{original_width}x#{original_height}"
+  end
+  image
+end
+
 def resize(image, h)
   original_width, original_height = image[:width], image[:height]
   h['width'] ||= original_width
@@ -29,6 +38,25 @@ def sketch(image, h)
     c.normalize
     c.colorspace "Gray"
     c.blur "0x.5"
+  end
+  image
+end
+
+def offerize(image, h)
+  h = {
+    brightness: '115',
+    saturation: '175',
+    hue:        '100',
+    gamma:      '1.125',
+    width:      '350',
+    height:     '350'
+  }.merge(h)
+
+  image.combine_options do |c|
+    c.modulate "#{h['brightness']},#{h['saturation']},#{h['hue']}"
+    c.gamma "#{h['gamma']}"
+    c.gravity "center"
+    c.resize "#{h['width']}x#{h['height']}"
   end
   image
 end
@@ -145,7 +173,8 @@ params['operations'].each do |op|
   image = MiniMagick::Image.open(filename)
   image = self.send(op[:op], image, {}.merge(op))
   image.format op['format'] if op['format']
+  image.quality op['quality'] if op['quality'] unless op[:op] == "original"
   image.write output_filename
   upload_file output_filename, output_path
 end
-puts "Worker end"
+puts "Worker finished"
