@@ -44,12 +44,12 @@ end
 
 def offerize(image, h)
   h = {
-    brightness: '115',
-    saturation: '175',
-    hue:        '100',
-    gamma:      '1.125',
-    width:      '350',
-    height:     '350'
+    'brightness' => '115',
+    'saturation' => '175',
+    'hue'        => '100',
+    'gamma'      => '1.125',
+    'width'      => '350',
+    'height'     => '350'
   }.merge(h)
 
   image.combine_options do |c|
@@ -112,7 +112,7 @@ end
 def upload_file(filename, path=nil)
   unless params['disable_network']
     bucket_name = params['aws']['s3_bucket_name']
-    path = path && !path.end_with?('/') && "#{path}/" || ""
+    path = path && (!path.end_with?('/') && "#{path}/" || "#{path}") || ""
     files = [filename].flatten
     files.each do |filepath|
       puts "Uploading the file #{filepath} to s3://#{bucket_name}/#{path}"
