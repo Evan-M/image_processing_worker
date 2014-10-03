@@ -31,5 +31,6 @@ gem 'subexec'
 gem 'mini_magick'
 
 file 'iron_pony.png'
+file 'mysql-ssl-ca-cert.pem'
 
 exec 'image_processor.rb'
