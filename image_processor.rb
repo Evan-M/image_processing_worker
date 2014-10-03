@@ -1,8 +1,21 @@
+require 'json'
+require 'mysql2'
+require 'active_record'
+
 require 'open-uri'
 
 require 'fog'
 require 'subexec'
 require 'mini_magick'
+
+class MediaAsset < ActiveRecord::Base
+  has_one :offer, foreign_key: :poster_asset_id, inverse_of: :poster_asset
+end
+
+class Offer < ActiveRecord::Base
+  self.primary_key = "offer_number"
+  belongs_to :poster_asset, class_name: "MediaAsset", inverse_of: :offer
+end
 
 def original(image, h)
   original_width, original_height = image[:width], image[:height]
@@ -161,11 +174,34 @@ def download_image()
   filename
 end
 
+def get_config()
+  config = {}
+  ARGV.each_with_index do |arg, i|
+    if arg == "-config"
+      config = JSON.parse(IO.read(ARGV[i+1]))
+    end
+  end
+  config
+end
+
+def setup_database(db_params)
+  return unless db_params
+  # estabilsh database connection
+  ActiveRecord::Base.establish_connection( db_params )
+end
 
 puts "Worker started"
 p params
+
+puts "Fetching config"
+config = get_config
+
+puts "Connecting to database"
+setup_database( config['database_params'] )
+
 puts "Downloading image"
 filename = download_image
+
 params['operations'].each do |op|
   puts "\n\nPerforming #{op[:op]} with #{op.inspect}"
   output_path = op['destination_path']
@@ -177,4 +213,5 @@ params['operations'].each do |op|
   image.write output_filename
   upload_file output_filename, output_path
 end
+
 puts "Worker finished"

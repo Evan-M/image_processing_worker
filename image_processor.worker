@@ -23,6 +23,9 @@ operations: [ # an array of operations to perform
 
 runtime 'ruby'
 
+gem 'activerecord'
+gem 'mysql2'
+
 gem 'fog'
 gem 'subexec'
 gem 'mini_magick'
