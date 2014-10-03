@@ -224,6 +224,7 @@ params['operations'].each do |op|
   output_filename = op['destination']
   image = MiniMagick::Image.open(filename)
   image = self.send(op[:op], image, {}.merge(op))
+  image.strip unless op[:strip] === false
   image.format op['format'] if op['format']
   image.quality op['quality'] if op['quality'] unless op[:op] == "original"
   image.write output_filename
