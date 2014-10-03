@@ -124,6 +124,13 @@ end
 
 def upload_file(filename, path=nil)
   unless params['disable_network']
+
+    # Check that the offer to attach the image to exists before doing anything
+    offer = Offer.find( params['offer_id'] )
+    unless offer
+      puts "No offer to attach image to"
+    end
+
     bucket_name = params['aws']['s3_bucket_name']
     path = path && (!path.end_with?('/') && "#{path}/" || "#{path}") || ""
     path += "#{params['offer_id']}/"
@@ -151,6 +158,14 @@ def upload_file(filename, path=nil)
       if stored_file
         puts "Uploading successful."
         puts "\nYou can view the file here on s3: ", stored_file.public_url
+
+        asset_attributes = {name: "#{filepath}", uri: "#{stored_file.public_url}"}
+        puts "Saving asset record to database associated with offer ##{params['offer_id']} with #{asset_attributes.inspect}"
+        if offer.poster_asset
+          offer.poster_asset.update_attributes! asset_attributes
+        else
+          offer.create_poster_asset asset_attributes
+        end
       else
         puts "Error uploading to s3."
       end
