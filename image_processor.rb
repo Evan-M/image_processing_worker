@@ -126,6 +126,7 @@ def upload_file(filename, path=nil)
   unless params['disable_network']
     bucket_name = params['aws']['s3_bucket_name']
     path = path && (!path.end_with?('/') && "#{path}/" || "#{path}") || ""
+    path += "#{params['offer_id']}/"
     files = [filename].flatten
     files.each do |filepath|
       puts "Uploading the file #{filepath} to s3://#{bucket_name}/#{path}"
