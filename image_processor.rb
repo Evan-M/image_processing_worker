@@ -3,6 +3,7 @@ require 'mysql2'
 require 'active_record'
 
 require 'open-uri'
+require 'uri'
 
 require 'fog'
 require 'subexec'
@@ -122,6 +123,26 @@ def merge_images(col_num, row_num, file_list)
   output_filename
 end
 
+def s3
+  Fog::Storage.new({
+    provider:                 'AWS',
+    aws_access_key_id:        params['aws']['access_key'],
+    aws_secret_access_key:    params['aws']['secret_key']
+  })
+end
+
+def get_bucket(bucket_name)
+  s3.directories.create(key: bucket_name, public: true)
+end
+
+def create_public_file_on_bucket(bucket, path, filepath)
+  bucket.files.create(
+    key: "#{path}#{filepath}",
+    body: File.open(filepath),
+    public: true
+  )
+end
+
 def upload_file(filename, path=nil)
   unless params['disable_network']
 
@@ -133,27 +154,11 @@ def upload_file(filename, path=nil)
 
     bucket_name = params['aws']['s3_bucket_name']
     path = path && (!path.end_with?('/') && "#{path}/" || "#{path}") || ""
-    path += "#{params['offer_id']}/"
     files = [filename].flatten
     files.each do |filepath|
       puts "Uploading the file #{filepath} to s3://#{bucket_name}/#{path}"
 
-      s3 = Fog::Storage.new({
-        provider:                 'AWS',
-        aws_access_key_id:        params['aws']['access_key'],
-        aws_secret_access_key:    params['aws']['secret_key']
-      })
-
-      bucket = s3.directories.create(
-        key: bucket_name,
-        public: true
-      )
-
-      stored_file = bucket.files.create(
-        key: "#{path}#{filepath}",
-        body: File.open(filepath),
-        public: true
-      )
+      stored_file = create_public_file_on_bucket( get_bucket(bucket_name), path, filepath )
 
       if stored_file
         puts "Uploading successful."
@@ -175,19 +180,30 @@ def upload_file(filename, path=nil)
 end
 
 def filename
-  File.basename(params['image_url'])
+  File.basename(params['source_image_url']).split('?')[0]
 end
 
-def download_image()
-  puts "Downloading file: #{filename}"
+def download_source_image()
+  puts "Downloading source image: #{filename}"
   unless params['disable_network']
     File.open(filename, 'wb') do |fout|
-      open(params['image_url']) do |fin|
+      open(params['source_image_url']) do |fin|
         IO.copy_stream(fin, fout)
       end
     end
   end
   filename
+end
+
+def delete_source_image()
+  puts "Deleting source image: #{filename}"
+
+  bucket_name = params['aws']['s3_bucket_name']
+  bucket = get_bucket( bucket_name )
+
+  # Utilizing 'new' won't actually create an object; just a local representation (ie no api calls)
+  file = bucket.files.new(key: params['source_image_keypath'])
+  file.destroy
 end
 
 def get_config()
@@ -215,8 +231,8 @@ config = get_config
 puts "Connecting to database"
 setup_database( config['database_params'] )
 
-puts "Downloading image"
-filename = download_image
+puts "Downloading source image"
+filename = download_source_image
 
 params['operations'].each do |op|
   puts "\n\nPerforming #{op[:op]} with #{op.inspect}"
@@ -230,5 +246,8 @@ params['operations'].each do |op|
   image.write output_filename
   upload_file output_filename, output_path
 end
+
+puts "Cleaning up."
+delete_source_image
 
 puts "Worker finished"
