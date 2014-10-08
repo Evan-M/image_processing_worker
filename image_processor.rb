@@ -11,11 +11,18 @@ require 'mini_magick'
 
 class MediaAsset < ActiveRecord::Base
   has_one :offer, foreign_key: :poster_asset_id, inverse_of: :poster_asset
+  has_one :offer_change_request, foreign_key: :poster_asset_id, inverse_of: :poster_asset
 end
 
 class Offer < ActiveRecord::Base
   self.primary_key = "offer_number"
   belongs_to :poster_asset, class_name: "MediaAsset", inverse_of: :offer
+  has_many :offer_change_requests
+end
+
+class OfferChangeRequest < ActiveRecord::Base
+  belongs_to :poster_asset, class_name: "MediaAsset", inverse_of: :offer
+  belongs_to :offer
 end
 
 def original(image, h)
@@ -147,10 +154,12 @@ def upload_file(filename, path=nil)
   unless params['disable_network']
 
     # Check that the offer to attach the image to exists before doing anything
-    offer = Offer.find( params['offer_id'] )
-    unless offer
-      puts "No offer to attach image to"
+    if params['offer_id']
+      offer = Offer.find( params['offer_id'] )
+    elsif params['change_request_id']
+      offer = OfferChangeRequest.find( params['change_request_id'] )
     end
+    puts "No offer to attach image to" unless offer
 
     bucket_name = params['aws']['s3_bucket_name']
     path = path && (!path.end_with?('/') && "#{path}/" || "#{path}") || ""
@@ -165,7 +174,12 @@ def upload_file(filename, path=nil)
         puts "\nYou can view the file here on s3: ", stored_file.public_url
 
         asset_attributes = {name: "#{filepath}", uri: "#{stored_file.public_url}"}
-        puts "Saving asset record to database associated with offer ##{params['offer_id']} with #{asset_attributes.inspect}"
+        if params['offer_id']
+          puts "Saving asset record to database associated with offer ##{params['offer_id']} with #{asset_attributes.inspect}"
+        elseif params['change_request_id']
+          puts "Saving asset record to database associated with offer_change_request ##{params['change_request_id']} with #{asset_attributes.inspect}"
+        end
+
         if offer.poster_asset
           offer.poster_asset.update_attributes! asset_attributes
         else
