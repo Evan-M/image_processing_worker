@@ -70,10 +70,16 @@ def resize(image, h)
 end
 
 def thumbnail(image, h)
+  h = {
+    'width'    => '150',
+    'height'   => '150',
+    'bg_color' => '#232323'
+  }.merge(h)
+
   image.combine_options do |c|
     c.thumbnail "#{h['width']}x#{h['height']}"
-    c.background 'white'
-    c.extent "#{h['width']}x#{h['height']}"
+    c.background "#{h['bg_color']}"
+    c.extent "#{h['width']}x#{h['height']}^"
     c.gravity "center"
   end
   image
@@ -97,14 +103,16 @@ def offerize(image, h)
     'hue'        => '100',
     'gamma'      => '1.125',
     'width'      => '350',
-    'height'     => '350'
+    'height'     => '350',
+    'bg_color'   => '#232323'
   }.merge(h)
 
   image.combine_options do |c|
     c.modulate "#{h['brightness']},#{h['saturation']},#{h['hue']}"
     c.gamma "#{h['gamma']}"
+    c.background "#{h['bg_color']}"
+    c.extent "#{h['width']}x#{h['height']}^"
     c.gravity "center"
-    c.resize "#{h['width']}x#{h['height']}"
   end
   image
 end
