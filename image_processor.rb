@@ -10,20 +10,47 @@ require 'subexec'
 require 'mini_magick'
 
 class MediaAsset < ActiveRecord::Base
-  has_one :offer, foreign_key: :poster_asset_id, inverse_of: :poster_asset
+  has_one :offer,                foreign_key: :poster_asset_id, inverse_of: :poster_asset
   has_one :offer_change_request, foreign_key: :poster_asset_id, inverse_of: :poster_asset
+  has_many :versions, class_name: "AssetVersion", foreign_key: :media_asset_id
+end
+
+class AssetVersion < ActiveRecord::Base
+  belongs_to :media_asset, autosave: true, inverse_of: :versions
 end
 
 class Offer < ActiveRecord::Base
   self.primary_key = "offer_number"
-  belongs_to :poster_asset, class_name: "MediaAsset", inverse_of: :offer
+  belongs_to :poster_asset, ->{ includes :versions },
+                            class_name: "MediaAsset", inverse_of: :offer,
+                            autosave: true
   has_many :offer_change_requests
+
+  def add_version(attributes)
+    (poster_asset || create_poster_asset).versions.create(attributes)
+  end
+
+  def update_or_create_poster_asset(attributes)
+    poster_asset && poster_asset.update_attributes!(attributes) || create_poster_asset(attributes)
+  end
 end
 
 class OfferChangeRequest < ActiveRecord::Base
-  belongs_to :poster_asset, class_name: "MediaAsset", inverse_of: :offer
+  belongs_to :poster_asset, ->{ includes :versions },
+                            class_name: "MediaAsset", inverse_of: :offer_change_request,
+                            autosave: true
   belongs_to :offer
+
+  def add_asset_version(attributes)
+    (poster_asset || create_poster_asset).asset_versions.create(attributes)
+  end
+
+  def update_or_create_poster_asset(attributes)
+    poster_asset && poster_asset.update_attributes!(attributes) || create_poster_asset(attributes)
+  end
 end
+
+##########################   END MODEL DEFINITIONS   ##########################
 
 def original(image, h)
   original_width, original_height = image[:width], image[:height]
@@ -150,15 +177,16 @@ def create_public_file_on_bucket(bucket, path, filepath)
   )
 end
 
-def upload_file(filename, path=nil)
+def upload_file(filename, path=nil, version="original")
   unless params['disable_network']
 
     # Check that the offer to attach the image to exists before doing anything
-    if params['offer_id']
-      offer = Offer.find( params['offer_id'] )
-    elsif params['change_request_id']
+    if params['change_request_id']
       offer = OfferChangeRequest.find( params['change_request_id'] )
+    elsif params['offer_id']
+      offer = Offer.find( params['offer_id'] )
     end
+
     puts "No offer to attach image to" unless offer
 
     bucket_name = params['aws']['s3_bucket_name']
@@ -173,18 +201,15 @@ def upload_file(filename, path=nil)
         puts "Uploading successful."
         puts "\nYou can view the file here on s3: ", stored_file.public_url
 
-        asset_attributes = {name: "#{filepath}", uri: "#{stored_file.public_url}"}
+        version_attributes = {version: "#{version}", uri: "#{stored_file.public_url}"}
+
         if params['offer_id']
-          puts "Saving asset record to database associated with offer ##{params['offer_id']} with #{asset_attributes.inspect}"
+          puts "Saving asset record to database associated with offer ##{params['offer_id']} with #{version_attributes.inspect}"
         elseif params['change_request_id']
-          puts "Saving asset record to database associated with offer_change_request ##{params['change_request_id']} with #{asset_attributes.inspect}"
+          puts "Saving asset record to database associated with offer_change_request ##{params['change_request_id']} with #{version_attributes.inspect}"
         end
 
-        if offer.poster_asset
-          offer.poster_asset.update_attributes! asset_attributes
-        else
-          offer.create_poster_asset asset_attributes
-        end
+        offer.add_version( version_attributes )
       else
         puts "Error uploading to s3."
       end
@@ -237,7 +262,10 @@ def setup_database(db_params)
 end
 
 puts "Worker started"
-p params
+aws_hash_filter = %w( access_key secret_key ).inject({}) {|hash,key| hash[key] = "[FILTERED]"; hash;}
+filtered_params = params.clone
+filtered_params["aws"].merge!(aws_hash_filter)
+p filtered_params
 
 puts "Fetching config"
 config = get_config
@@ -258,7 +286,7 @@ params['operations'].each do |op|
   image.format op['format'] if op['format']
   image.quality op['quality'] if op['quality'] unless op[:op] == "original"
   image.write output_filename
-  upload_file output_filename, output_path
+  upload_file output_filename, output_path, op['version']
 end
 
 puts "Cleaning up."
