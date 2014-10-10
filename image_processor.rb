@@ -41,8 +41,8 @@ class OfferChangeRequest < ActiveRecord::Base
                             autosave: true
   belongs_to :offer
 
-  def add_asset_version(attributes)
-    (poster_asset || create_poster_asset).asset_versions.create(attributes)
+  def add_version(attributes)
+    (poster_asset || create_poster_asset).versions.create(attributes)
   end
 
   def update_or_create_poster_asset(attributes)
@@ -201,11 +201,11 @@ def upload_file(filename, path=nil, version="original")
         puts "Uploading successful."
         puts "\nYou can view the file here on s3: ", stored_file.public_url
 
-        version_attributes = {version: "#{version}", uri: "#{stored_file.public_url}"}
+        version_attributes = {version: "#{version}", url: "#{stored_file.public_url}"}
 
         if params['offer_id']
           puts "Saving asset record to database associated with offer ##{params['offer_id']} with #{version_attributes.inspect}"
-        elseif params['change_request_id']
+        elsif params['change_request_id']
           puts "Saving asset record to database associated with offer_change_request ##{params['change_request_id']} with #{version_attributes.inspect}"
         end
 
