@@ -263,7 +263,7 @@ end
 
 puts "Worker started"
 aws_hash_filter = %w( access_key secret_key ).inject({}) {|hash,key| hash[key] = "[FILTERED]"; hash;}
-filtered_params = params.clone
+filtered_params = params.deep_dup
 filtered_params["aws"].merge!(aws_hash_filter)
 p filtered_params
 
