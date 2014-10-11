@@ -249,8 +249,12 @@ def delete_source_image()
   bucket = get_bucket( bucket_name )
 
   # Utilizing 'new' won't actually create an object; just a local representation (ie no api calls)
-  file = bucket.files.new(key: params['source_image_keypath'])
-  file.destroy
+  begin
+    file = bucket.files.new(key: params['source_image_keypath'])
+    file.destroy
+  rescue NoMethodError => e
+    puts "Nothing to delete."
+  end
 end
 
 def get_config()
