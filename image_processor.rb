@@ -110,6 +110,7 @@ def offerize(image, h)
   image.combine_options do |c|
     c.modulate "#{h['brightness']},#{h['saturation']},#{h['hue']}"
     c.gamma "#{h['gamma']}"
+    c.resize "#{h['width']}x#{h['height']}^"
     c.background "#{h['bg_color']}"
     c.extent "#{h['width']}x#{h['height']}^"
     c.gravity "center"
